@@ -9,4 +9,185 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r}
+library(tidyverse)
+library(moderndive)
+library(skimr)
+library(kableExtra)
+library(dplyr)
+library(readr)
+library(Stat2Data)
+library(ggplot2)
+library(GGally)
+```
+
+## load data from csv files
+```{r}
+data <- read.csv("dataset1.csv", na.strings = "") %>% rename("Number_of_Family"=7,
+                                                             "Income" = 1,
+                                                             "FoodExpenditure" = 3,
+                                                             "Gender" = 4,
+                                                             "Age" = 5,
+                                                             "Type" = 6,
+                                                             "Area" = 8,
+                                                             "HouseAge" = 9,
+                                                             "bedrooms" = 10)
+glimpse(data)
+```
+
+$FoodExpenditure$ is the annual expenditure by the household on food (in Philippine peso)
+$Gender$ is the head of the households sex
+$Age$ is the head of the households age (in years)
+$Type$ is the relationship between the group of people living in the house
+$Number_of_Family$ is the number of people living in the house
+$Area$ is the floor area of the house (in $m^2$)
+$HouseAge$ is the age of the building (in years)
+$bedrooms$ is the number of bedrooms in the house
+$Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)
+
+convert chr into factor
+```{r}
+data$Region <- factor(data$Region)
+data$Gender <- factor(data$Gender)
+data$Type <- factor(data$Type)    
+```
+
+Check continuous variables
+```{r}
+continuous <-select_if(data, is.numeric)
+summary(continuous)
+```
+data have totally different scales and many of them have large outliers, may need to standardize them?
+
+```{r}
+#Income
+ggplot(continuous, aes(x = Income)) + geom_density(alpha = .2, fill = "#FF0000FF")
+top_two_percent <- quantile(data$Income , .98)
+top_two_percent #98% is 1005519, drop the observations above this threshold
+data_drop <- data %>% 
+  filter(Income <top_two_percent)
+dim(data_drop)
+ggplot(data_drop, aes(x = Income)) + geom_density(alpha = .2, fill = "#FF0000FF")
+
+#FoodExpenditure
+ggplot(continuous, aes(x = FoodExpenditure)) + geom_density(alpha = .2, fill = "#FFDB00FF")
+top_one_percent <- quantile(data_drop$FoodExpenditure , .99)
+top_one_percent #99% is 226730.3, drop the observations above this threshold
+data_drop <-data %>%
+  filter(FoodExpenditure <top_one_percent)
+dim(data_drop)
+ggplot(data_drop, aes(x = FoodExpenditure)) + geom_density(alpha = .2, fill = "#FFDB00FF")
+
+#Age
+ggplot(continuous, aes(x = Age)) + geom_density(alpha = .2, fill = "darkgray")
+top_one_percent <- quantile(data_drop$Age , .99)
+top_one_percent #99% is 85, keep it since it looks fine
+
+#Area
+ggplot(continuous, aes(x = Area)) + geom_density(alpha = .2, fill = "#49FF00FF")
+top_one_percent <- quantile(data_drop$Area , .99)
+top_one_percent #99% is 500, drop the observations above this threshold
+data_drop <-data %>%
+  filter(Area <top_one_percent)
+dim(data_drop)
+ggplot(data_drop, aes(x = Area)) + geom_density(alpha = .2, fill = "#49FF00FF")
+
+#HouseAge 
+ggplot(continuous, aes(x = HouseAge)) + geom_density(alpha = .2, fill = "#FF00DBFF")
+top_two_percent <- quantile(data_drop$HouseAge , .98)
+top_two_percent #98% is 65, drop the observations above this threshold
+data_drop <-data %>%
+  filter(HouseAge <top_two_percent)
+dim(data_drop)
+ggplot(data_drop, aes(x = HouseAge)) + geom_density(alpha = .2, fill = "#FF00DBFF")
+
+#bedrooms      
+ggplot(continuous, aes(x = bedrooms)) + geom_density(alpha = .2, fill = "#0092FFFF")
+top_one_percent <- quantile(data_drop$bedrooms , .99)
+top_one_percent #99% is 6, drop the observations above this threshold
+data_drop <-data %>%
+  filter(bedrooms <top_one_percent)
+dim(data_drop)
+ggplot(data_drop, aes(x = bedrooms)) + geom_density(alpha = .2, fill = "#0092FFFF")
+```
+
+check factor varialbles 
+```{r}
+factor <- data.frame(select_if(data_rescale, is.factor))
+ncol(factor)
+```
+
+Create graph for each column
+```{r}
+
+data$Number_of_Family <- factor(data$Number_of_Family)
+
+graph <- lapply(names(factor), 
+                function(x) 
+                  ggplot(factor, aes(get(x))) +
+                  geom_bar(width = 0.1) +
+                  theme(axis.text.x = element_text(angle = 90)))
+```
+## Recast Feature
+Change level family number as it has too many levels.
+
+
+## Summary Statistic
+
+visualize the correlation between the variables
+```{r}
+corr <- data.frame(lapply(data, as.integer)) #Convert data to numeric
+ggcorr(corr, method = c("pairwise", "spearman"), 
+             nbreaks = 8, 
+             hjust = 0.8,
+             label = TRUE,
+             label_size = 2,
+             color = "grey50")
+```
+## Train/test set
+
+split the data between a train set and a test set (for machine learning task if needed)
+```{r}
+set.seed(1234)
+create_train_test <- function(data1, size = 0.8, train = TRUE) {
+  n_row = nrow(data1)
+  total_row = size * n_row
+  train_sample <- 1: total_row
+  if (train == TRUE) {
+    return (data1[train_sample, ])
+  } else {
+    return (data1[-train_sample, ])}}
+
+data_train <- create_train_test(data, 0.8, train = TRUE)
+data_test <- create_train_test(data, 0.8, train = FALSE)
+```
+
+## Generalized Linear Model
+```{r}
+model <- glm(Number_of_Family~FoodExpenditure+Gender+Age+Type+HouseAge+bedrooms+Electricity, 
+             data = data_train, family = 'binomial')
+summary(model)
+```
+The summary of our model reveals interesting information. The performance of a logistic regression is evaluated with specific key metrics.
+
+## Assess the performance of the model
+
+The logistic regression can be evaluated through the output of the glm() function which stored in a list. Below we print the first five elements to see the results.
+
+```{r}
+lapply(model, class)[1:5]
+model$aic
+predict <- predict(model, data_test, type = 'response')
+```
+```{r}
+table_mat <- table(data_test$Number_of_Family, predict > 0.5)
+table_mat
+
+```
+check model accuracy
+```{r}
+accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+accuracy_Test
+```
+
+
