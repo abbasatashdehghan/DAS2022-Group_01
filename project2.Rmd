@@ -1,0 +1,85 @@
+---
+title: "Group Work2"
+author: "Group1"
+date: "2022/3/17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,comment = NA, message = FALSE, warning = FALSE)
+```
+
+```{r libraries}
+library(ggplot2)
+library(utils)
+library(tidyverse)
+library(skimr)
+library(GGally)
+library(janitor)
+library(sjPlot)
+```
+
+# Question 
+
+question:
+
+Which household related variables influence the number of people living in a household?
+
+# Transform into tidy data
+
+```{r data, echo = FALSE, eval = TRUE}
+setwd("~/Desktop/project2")
+household <- read.csv("dataset1.csv")
+```
+
+```{r}
+head(household)
+household %>% 
+  skim()
+household$Household.Head.Sex = as.factor(household$Household.Head.Sex)
+household$Type.of.Household = as.factor(household$Type.of.Household)
+
+levels(household$Household.Head.Sex) 
+levels(household$Type.of.Household)  
+```
+
+```{r explore data}
+# check collinearity
+household %>% 
+  select(Total.Household.Income,Total.Food.Expenditure,Household.Head.Sex,Household.Head.Age,Type.of.Household,Total.Number.of.Family.members,House.Floor.Area,Number.of.bedrooms,Electricity) %>% 
+  ggpairs(household)
+
+ggplot(household,aes(y=Total.Household.Income,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Total.Food.Expenditure,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Household.Head.Sex,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Household.Head.Age,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Type.of.Household,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=House.Floor.Area,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Number.of.bedrooms,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+ggplot(household,aes(y=Electricity,fill=Total.Number.of.Family.members))+
+  geom_boxplot()
+# look at rank with genre (seems like animation, comedy, documentary and short films are more likely to be good, whereas action, drama and romance more likely to be bad)
+household  %>% 
+  tabyl(Household.Head.Sex, Total.Number.of.Family.members) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() # To show original counts 
+ggplot(household, aes(x= Total.Number.of.Family.members,  y = ..prop.., group=Household.Head.Sex, fill=Household.Head.Sex)) + 
+    geom_bar(position="dodge", stat="count") +
+    labs(y = "Proportion")
+# not a usual plot but interesting to see the categories against each other a little easier
+ggplot(household,aes(x=Household.Head.Sex,y=Total.Number.of.Family.members,col=Total.Number.of.Family.members))+
+  geom_jitter()
+```
+
+# model fitting
+
+
+
