@@ -12,3 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Test by Abbas
 This is just a test file and you can test your commands and see how the changes
 area pplied on your local repositry and Github. So feel free to test
+
+## Test to Tao
+Tao this is a test to verify if have understood how to work with git
