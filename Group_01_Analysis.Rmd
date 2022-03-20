@@ -206,7 +206,7 @@ data_test <- create_train_test(data, 0.8, train = FALSE)
 
 ## Generalized Linear Model
 ```{r}
-data_check <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
+data_train <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
                                   Income = (Income),
                                   FoodExpenditure = (FoodExpenditure),
                                   Gender = (Gender),
@@ -217,9 +217,9 @@ data_check <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
                                   bedrooms = (bedrooms),
                                   Electricity = (Electricity))
 
-model <- glm(Number_of_Family_new ~.,       
+model_new <- glm(formula = Number_of_Family_new ~.,      
              data = data_train, family = 'binomial')
-summary(model)
+summary(model_new)
 ```
 The summary of our model reveals interesting information. The performance of a logistic regression is evaluated with specific key metrics.
 
@@ -228,9 +228,9 @@ The summary of our model reveals interesting information. The performance of a l
 The logistic regression can be evaluated through the output of the glm() function which stored in a list. Below we print the first five elements to see the results.
 
 ```{r}
-lapply(model, class)[1:5]
-model$aic
-predict <- predict(model, data_test, type = 'response')
+lapply(model_new, class)[1:5]
+model_new$aic
+predict <- predict(model_new, data_test, type = 'response')
 ```
 ```{r}
 table_mat <- table(data_train$Number_of_Family_new, predict > 0.5)
@@ -245,8 +245,8 @@ accuracy_Test
 
 ## ROC curve
 ```{r}
-ROCRpred <- prediction(predict, data_test$Number_of_Family_new)
-ROCRperf <- performance(ROCRpred, 'tpr', 'fpr')
-plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2, 1.7))
+pred <- prediction(predict, data_test$Number_of_Family_new)
+perf <- performance(pred, "TPR", "FPR")
+plot(perf, colorize = TRUE, text.adj = c(-0.2, 1.5))
 ```
 
