@@ -19,6 +19,7 @@ library(readr)
 library(Stat2Data)
 library(ggplot2)
 library(GGally)
+library(ROCR)
 ```
 
 ## load data from csv files
@@ -46,7 +47,8 @@ $bedrooms$ is the number of bedrooms in the house
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)
 
 Recast variables
-add a new column called "Number_of_Family_new", reducing the level of "Number_of_Family" from 15 to 2 for binomial 
+A new column called "Number_of_Family_new" is added in order to reducing the level of "Number_of_Family" from 15 to 2 for the binomial model. Using the mean of $Number_of_Family$ as the grouping criterion, house with more than $6$ members were defined as "a large family".
+
 ```{r}
 data$Region <- factor(data$Region)
 data$Gender <- factor(data$Gender)
@@ -55,7 +57,7 @@ data$Number_of_Family_new <- factor(ifelse(data$Number_of_Family >= 7,1,0))
 summary(data)
 ```
 
-first time check, confirm outliers
+Now check the data again and confirm if there are outliers, start with continouos variables.
 ```{r}
 data_check <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
                                   Income = (Income),
@@ -68,7 +70,7 @@ data_check <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
                                   bedrooms = (bedrooms),
                                   Electricity = (Electricity))
 
-model <- glm(Number_of_Family_new ~ Income+FoodExpenditure+Gender+Age+Type+Area+HouseAge+bedrooms+Electricity, 
+model <- glm(Number_of_Family_new ~., 
              data = data_check, family = 'binomial')
 summary(model)
 
@@ -81,7 +83,7 @@ Check continuous variables
 continuous <-select_if(data, is.numeric)
 summary(continuous)
 ```
-data have totally different scales and many of them have large outliers, try standardize them
+It can be seen that the data have totally different scales and many of them have large outliers, try standardize them one by one.
 
 Income
 98% is 1005519, drop the observations above this threshold
@@ -204,7 +206,18 @@ data_test <- create_train_test(data, 0.8, train = FALSE)
 
 ## Generalized Linear Model
 ```{r}
-model <- glm(Number_of_Family_new ~       FoodExpenditure+Gender+Age+Type+Area+HouseAge+bedrooms+Electricity, 
+data_check <- data %>% summarize( Number_of_Family_new = (Number_of_Family_new),
+                                  Income = (Income),
+                                  FoodExpenditure = (FoodExpenditure),
+                                  Gender = (Gender),
+                                  Age = (Age),
+                                  Type = (Type),
+                                  Area = (Area),
+                                  HouseAge = (HouseAge),
+                                  bedrooms = (bedrooms),
+                                  Electricity = (Electricity))
+
+model <- glm(Number_of_Family_new ~.,       
              data = data_train, family = 'binomial')
 summary(model)
 ```
@@ -220,14 +233,20 @@ model$aic
 predict <- predict(model, data_test, type = 'response')
 ```
 ```{r}
-table_mat <- table(data_test$Number_of_Family, predict > 0.5)
+table_mat <- table(data_train$Number_of_Family_new, predict > 0.5)
 table_mat
-
 ```
 check model accuracy
+
 ```{r}
 accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
 accuracy_Test
 ```
 
+## ROC curve
+```{r}
+ROCRpred <- prediction(predict, data_test$Number_of_Family_new)
+ROCRperf <- performance(ROCRpred, 'tpr', 'fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2, 1.7))
+```
 
