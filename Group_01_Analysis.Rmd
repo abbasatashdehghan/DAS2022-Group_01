@@ -19,8 +19,7 @@ library(readr)
 library(Stat2Data)
 library(ggplot2)
 library(GGally)
-library(ROCR)
-```
+
 
 ## load data from csv files
 ```{r}
@@ -47,18 +46,11 @@ $bedrooms$ is the number of bedrooms in the house
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)
 
 
-
 ```{r}
 data$Region <- factor(data$Region)
 data$Gender <- factor(data$Gender)
 data$Type <- factor(data$Type)    
 
-summary(data)
-```
-
-Now check the data again and confirm if there are outliers, start with continouos variables.
-```{r}
-data_check <- data %>% summarize( Number_of_Family = (Number_of_Family),
                                   Income = (Income),
                                   FoodExpenditure = (FoodExpenditure),
                                   Gender = (Gender),
@@ -69,62 +61,20 @@ data_check <- data %>% summarize( Number_of_Family = (Number_of_Family),
                                   bedrooms = (bedrooms),
                                   Electricity = (Electricity))
 
-model <- glm(data = data_check, formula = Number_of_Family ~. )
+
 summary(model)
 
 data_check[c(1:6,8)] %>% ggpairs()
 #pchisq(deviance(model),df.residual(model))
 ```
 
-From the plot and summary table we can see that variables "Area", "bedrooms" and "Electricity" have very limited connection with the model, remove them for getting a better fitting model. 
+
 Check continuous variables
 ```{r}
 continuous <-select_if(data, is.numeric)
 summary(continuous)
 ```
-It can be seen that the data have totally different scales and many of them have large outliers, try standardize them one by one.
 
-Income
-99% is 1170662, drop the observations above this threshold
-```{r}
-ggplot(continuous, aes(x = Income)) + geom_density(alpha = .2, fill = "#FF0000FF")
-remove_one <- quantile(data$Income , .99)
-remove_one #99% is 1170662, drop the observations above this threshold
-data_drop <- data %>% 
-  filter(Income <remove_one)
-dim(data_drop)
-ggplot(data_drop, aes(x = Income)) + geom_density(alpha = .2, fill = "#FF0000FF")
-
-p1 <- ggplot(data_drop, aes(x = Number_of_Family, y = Income, group = Gender)) +
-  geom_boxplot() +
-  stat_summary(fun = mean,
-               geom = "point",
-               size = 3,
-               color = "steelblue") + theme_classic()
-
-```
-
-FoodExpenditure
-99% is 210024.8, drop the observations above this threshold
-```{r}
-ggplot(continuous, aes(x = FoodExpenditure)) + geom_density(alpha = .2, fill = "#FFDB00FF")
-remove_one <- quantile(data_drop$FoodExpenditure , .99)
-remove_one #99% is 210024.8, drop the observations above this threshold
-data_drop <- data_drop %>%
-  filter(FoodExpenditure <remove_one)
-dim(data_drop)
-ggplot(data_drop, aes(x = FoodExpenditure)) + geom_density(alpha = .2, fill = "#FFDB00FF")
-
-p2 <- ggplot(data_drop, aes(x = Number_of_Family, y = FoodExpenditure, group = Gender)) +
-  geom_boxplot() +
-  stat_summary(fun = mean,
-               geom = "point",
-               size = 3,
-               color = "steelblue") + theme_classic()
-```
-
-Age
-Since the 99% is 85.12, remain all data as it looks fine
 ```{r}
 ggplot(continuous, aes(x = Age)) + geom_density(alpha = .2, fill = "#FF00DBFF")
 top_one_percent <- quantile(data_drop$Age , .99)
@@ -132,45 +82,13 @@ top_one_percent
 ```
 
 Area
-99% is 482.4, drop the observations above this threshold
-```{r}
-ggplot(continuous, aes(x = Area)) + geom_density(alpha = .2, fill = "#49FF00FF")
-remove_one <- quantile(data_drop$Area , .99)
-remove_one #99% is 482.4, drop the observations above this threshold
-data_drop <- data_drop %>%
-  filter(Area <remove_one)
-dim(data_drop)
-ggplot(data_drop, aes(x = Area)) + geom_density(alpha = .2, fill = "#49FF00FF")
 
-p3 <- ggplot(data_drop, aes(x = Number_of_Family, y = Area, group = Gender)) +
-  geom_boxplot() +
-  stat_summary(fun = mean,
-               geom = "point",
-               size = 3,
-               color = "steelblue") + theme_classic()
 ```
 
 HouseAge 
 98% is 65, drop the observations above this threshold
 ```{r}
 ggplot(continuous, aes(x = HouseAge)) + geom_density(alpha = .2, fill = "#FF00DBFF")
-remove_two <- quantile(data_drop$HouseAge , .98)
-remove_two #98% is 65, drop the observations above this threshold
-data_drop <- data_drop %>%
-  filter(HouseAge <remove_two)
-dim(data_drop)
-ggplot(data_drop, aes(x = HouseAge)) + geom_density(alpha = .2, fill = "#FF00DBFF")
-
-p4 <- ggplot(data_drop, aes(x = Number_of_Family, y = HouseAge , group = Gender)) +
-  geom_boxplot() +
-  stat_summary(fun = mean,
-               geom = "point",
-               size = 3,
-               color = "steelblue") + theme_classic()
-p4
-```
-
-
 
 Check if outliers were all removed
 ```{r}
@@ -226,18 +144,6 @@ data_test <- create_train_test(data, 0.8, train = FALSE)
 
 ## Generalized Linear Model
 
-```{r}
-data_train$Number_of_Family_new <- factor(ifelse(data_train$Number_of_Family >= 7,1,0))
-```
-
-Recast variables
-A new column called "Number_of_Family_new" is added in order to reducing the level of "Number_of_Family" from 15 to 2 for the binomial model. Using the mean of $Number_of_Family$ as the grouping criterion, house with more than $6$ members were defined as "a large family".
-```{r}
-model_new <- glm(Number_of_Family_new ~ FoodExpenditure+Gender+Age+Type+HouseAge, 
-             data = data_train, family = 'binomial')
-summary(model_new)
-```
-
 The summary of our model reveals interesting information. The performance of a logistic regression is evaluated with specific key metrics.
 
 ## Assess the performance of the model
@@ -245,25 +151,11 @@ The summary of our model reveals interesting information. The performance of a l
 The logistic regression can be evaluated through the output of the glm() function which stored in a list. Below we print the first five elements to see the results.
 
 ```{r}
-lapply(model_new, class)[1:5]
-model_new$aic
-predict <- predict(model_new, data_test, type = 'response')
-```
-```{r}
-table_mat <- table(data_train$Number_of_Family_new, predict > 0.5)
-table_mat
-```
-check model accuracy
 
 ```{r}
 accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
 accuracy_Test
 ```
 
-## ROC curve
-```{r}
-pred <- prediction(predict, data_test$Number_of_Family_new)
-perf <- performance(pred, "TPR", "FPR")
-plot(perf, colorize = TRUE, text.adj = c(-0.2, 1.5))
-```
+
 
