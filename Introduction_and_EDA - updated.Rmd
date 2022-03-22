@@ -1,0 +1,315 @@
+---
+title: "Group_01_Analysis.Rmd"
+author: "Group_01"
+date: "3/14/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, message=TRUE, warning=FALSE,error=TRUE, echo=TRUE}
+library(tidyverse)
+library(moderndive)
+library(skimr)
+library(readr)
+library(Stat2Data)
+library(ggplot2)
+library(GGally)
+library(broom)
+library(DescTools)
+library(knitr)
+library(gridExtra)
+library(janitor)
+library(dplyr)
+```
+# Introduction {#sec:Intro}
+
+Dataset comes from the FIES (Family Income and Expenditure Survey) recorded in the Philippines. The survey, which is undertaken every three years, is aimed at providing data on family income and expenditure. In this study, we are going to identify the most influential variables on the number of people living in a household using a Generalised Linear Model. Below you can see an overview of the data and variables
+```{r, message=FALSE, warning=F}
+data <- read.csv("dataset1.csv", stringsAsFactors = T) %>% 
+  rename("Number_of_Family"=7,"Income" = 1, "FoodExpenditure" = 3,
+         "Gender" = 4, "Age" = 5,"Type" = 6, "Area" = 8,"HouseAge" = 9,
+         "Bedrooms" = 10) 
+
+data$Type <- as.character(data$Type)
+data$Type[data$Type == "Two or More Nonrelated Persons/Members"] <- 
+  "Other"
+ 
+#Region column removed from the data
+  
+glimpse(data)
+```
+$Income$ is the annual household income (in Philippine peso)
+$Region$ is the region of the Philippines which the data came from
+$FoodExpenditure$ is the annual expenditure by the household on food (in Philippine peso)  
+$Gender$ is the head of the households sex  
+$Age$ is the head of the households age (in years)  
+$Type$ is the relationship between the group of people living in the house  
+$Number_of_Family$ is the number of people living in the house  
+$Area$ is the floor area of the house (in $m^2$)  
+$HouseAge$ is the age of the building (in years)  
+$bedrooms$ is the number of bedrooms in the house  
+$Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
+
+## Recast variables
+
+From the above it can been seen that variable "Region" will not contribute to the upcoming analysis as it has only one state. Therefore, it is removed from the data. 
+
+In addition to that,a new column called "Number_of_Family_new" is added to reduce the level of "Number_of_Family" from 15 to 2 for the binomial model analysis. The median value of `r median(data$Number_of_Family)` is used as the cut off point. Therefore they are divided into groups of families of less than or equal to 4 members and greater than 4 members.
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+data <- data %>% mutate(Number_of_Family_new = cut(Number_of_Family,
+                                  breaks = c(-1,4,Inf),
+                                  labels=c("<=4", ">4"))) %>% select(-2)
+
+```
+
+# Exploratory Data Analysis {#sec:EDA}
+The following tables and graphs are produced to provide statistical summaries and graphs to see the distribution variables and their relationship and identify any possible outliers.
+
+```{r data_summary}
+# summary(data)
+data[,-c(3,5,11)] %>% skim() %>% 
+  select(skim_variable,numeric.p0, numeric.p25,
+                       numeric.mean, numeric.sd, numeric.p50, numeric.p75, numeric.p100) %>% 
+  kable(caption = "\\label{tabel:summary} Summary Statistics", 
+        col.names = c("Variable", "Min", "Q1","Mean",
+                                       "SD", "Median","Q3", "Max"),
+        align = rep("c", 6), digits = 1)
+```
+
+Referring to \ref{tabel:summary}, the difference between mean of some variables indicating the presence of large outliers in the data. The following pair plots fuhrer support the presence of outliers. 
+
+```{r pairplot1, fig.cap="\\label{fig:pairplot1} The pair plot (first five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
+data[,c(1:5,11)] %>% ggpairs(aes(color = Number_of_Family_new))
+
+```
+
+```{r pairplot2, fig.cap="\\label{fig:pairplot2} The pair plot (second five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
+data[,c(6:11)] %>% ggpairs(aes(color = Number_of_Family_new))
+
+```
+
+Figure \ref{fig:outliers} presents the distribution of outcome variables with regards to each of the continuous variables. The boxplots can further help identify the outliers 
+
+```{r outliers, fig.cap="\\label{fig:outliers} The boxplot of the outcome variables vs each of the continuous explanatory variables", message=FALSE, warning=FALSE}
+# Defining a fucntion to draw multiple boxplots for the outcome variables
+graph_function <- function(x){
+  ggplot(data = data, aes(x = Number_of_Family_new, y = get(x))) + 
+    geom_boxplot(aes(color = Number_of_Family_new)) + 
+    theme(legend.position = "none") + labs(y = x) + 
+    scale_y_continuous(limits = c(min(data[[x]])*0.9, max(data[[x]])*1.1)) + 
+    stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+                 width = .75, linetype = "dashed")
+}  
+#Boxplots of outcome variable vs other continous variables:
+graphs <- lapply(names(data)[c(1,2,4,6,7,8,9)], graph_function)
+
+grid.arrange(graphs[[1]],graphs[[2]],graphs[[3]],graphs[[4]],
+                  graphs[[5]],graphs[[6]], ncol = 2)
+
+```
+
+Once the outliers are spotted and removed, the skewness in data is decreased as it can be seen in the Figure \ref{fig:outliersremoved}
+
+```{r outliersremoved, fig.cap="\\label{fig:outliersremoved} The boxplot of the outcome variables vs each of the continuous explanatory variables after removing outliers", message=FALSE, warning=FALSE}
+
+#Removing outliers 
+data <- data %>% filter(Income < 833000 & Area < 250)
+
+graphs_updated <- lapply(names(data)[c(1,2,4,6,7,8,9)], graph_function)
+
+p <- grid.arrange(graphs_updated[[1]],graphs_updated[[2]],graphs_updated[[3]],
+                  graphs_updated[[4]],graphs_updated[[5]],graphs_updated[[6]],
+                  ncol = 2)
+
+p
+```
+The table \ref{tabel:summary_outlier_removed} shows the summary statistics after removing outliers. The difference between medians and means are now narrower. 
+
+```{r data_summary_outliers_removed}
+data[,-c(3,5,11)] %>% skim() %>% 
+  select(skim_variable,numeric.p0,
+                       numeric.mean, numeric.sd, numeric.p50, numeric.p100) %>% 
+  kable(caption = "\\label{tabel:summary_outlier_removed} Summary Statistics after outliers removed", 
+        col.names = c("Variable", "Min", "Mean",
+                                       "SD", "Median", "Max"),
+        align = rep("c", 6), digits = 1)
+```
+
+The following data and graphs display the relationship between categorical variables and outcome variable
+
+```{r categorical_statistics}
+data %>% select(Number_of_Family_new, Gender) %>% 
+tabyl(Number_of_Family_new, Gender) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() %>% kable(caption = "\\label{tabel:summary_Gender} Summary outcome variabels based on gender", align = rep("c", 3), digits = 1)
+
+data %>% select(Number_of_Family_new, Type) %>% 
+tabyl(Number_of_Family_new, Type) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns() %>% kable(caption = "\\label{tabel:summary_Gender} Summary outcome variabels based on family type", align = rep("c", 3), digits = 1)
+
+```
+Table \ref{tabel:summary_Gender} shows that the men outnumber women as the head of household by almost 47 to 1. Furthermore, it can bee seen that the majority of families with in both groups are led by men.
+
+```{r categorical_statistics_figs, fig.cap="\\label{fig:categorical_statistics_figs} The proportion of the outcome variables with regards to cetegorial variables"}
+ggplot(data, aes(x= Gender,  y = ..prop.., group=Number_of_Family_new, fill=Number_of_Family_new)) + 
+    geom_bar(position="dodge", stat="count") +
+    labs(y = "Proportion", title = "The proportion of genders in each of the two categories")
+
+ggplot(data, aes(x= Type,  y = ..prop.., group=Number_of_Family_new, fill=Number_of_Family_new)) + 
+    geom_bar(position="dodge", stat="count") +
+    labs(y = "Proportion", title = "The proportion of family type in each of the two categories")
+```
+## Formal Data Analysis
+In this section we model the data to identify the most influential factors on the number of family members using different GLMs. Then the goodness of fit comparison is made to select the best model based on AIC and Deviance. The AIC measures the fit when a penalty is applied to the number of parameters. Smaller AIC values indicate the model is closer to the truth. 
+
+## Poisson  model
+```{r poisson, echo=TRUE}
+model.poisson = glm(data = data, Number_of_Family ~ Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge + Bedrooms + Electricity,
+                     family = poisson)
+initial.poisson.AIC = model.poisson$aic
+summary(model.poisson)
+```
+We now try to see if we can improve model AIC and decrease the deviance using step function. In this method we start from the full model and every time drop one variable and calculate the AIC. This procedure is continued until no further reduction in AIC is observed.
+```{r PoissonAIC}
+step(model.poisson)
+
+model.poisson = glm(data = data, Number_of_Family ~ Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge,
+                     family = poisson)
+
+summary(model.poisson)
+```
+
+By removing Electricity and Bedrooms, the AIC is reduced from `r round((initial.poisson.AIC),1)` to `r round((model.poisson$aic),1)`. We now check for the goodness of fit by comparing it against the null model. The 95 percent $\chi^2$(`r model.poisson$df.null - model.poisson$df.residual`) equals `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Taking the difference in deviances (likelihood ratio test) results in the value of `r round((model.poisson$null.deviance - model.poisson$deviance),1)` which is significant when compared to `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Therefore, there is no deviance of lack of fit with our model after removing the two variables of Electricity and Bedrooms.
+$$Number\_ of\_Family \sim Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge$$
+                       
+## Binomial models
+In this section we model the data using binomial family with different link functions. In this modelling the baseline category for the binary response will be `r levels(data$Number_of_Family_new)[1]`.
+
+### Logit link function
+```{r binomlogit, echo=TRUE}
+model.binom.logit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge + Bedrooms + Electricity,
+                     family = binomial(link = "logit"))
+initial.logit.AIC = model.binom.logit$aic
+summary(model.binom.logit) 
+```
+We now apply step function to see how we can improve the model in terms of AIC:
+
+```{r binomlogitAIC}
+step(model.binom.logit)
+
+model.binom.logit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge + Electricity,
+                     family = binomial(link = "logit"))
+
+second.logit.AIC <- model.binom.logit$aic
+summary(model.binom.logit)
+
+model.binom.logit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge,
+                     family = binomial(link = "logit"))
+```
+As you can see the variables of Area and Bedrooms are now removed as they resulted a reduction of AIC from `r round((initial.logit.AIC),1)` to `r round((second.logit.AIC),1)`. Given the $\alpha$ levels of 5 percent, the associated p value of the variable Electricity indicates that it is not a significant predictor of the number of family members. Ignoring Electricity, the AIC will be `r round(model.binom.logit$aic,1)` which has a minor difference with the previous value of `r round((second.logit.AIC),1)`. Furthermore, the likelihood ratio test is `r round((model.binom.logit$null.deviance - model.binom.logit$deviance),1)` which is significantly greater than $\chi^2$(p=0.95,df = `r model.binom.logit$df.null - model.binom.logit$df.residual`) equals `r round(qchisq(df=model.binom.logit$df.null - model.binom.logit$df.residual, p=0.95), 1)` indicating no deviance of lack of fit.
+Therefore the final model using logistic regression will be$$Number\_ of\_Family\_new \sim Income + FoodExpenditure + 
+                       Gender + Age + Type + HouseAge$$
+
+```{r finallogit}
+summary(model.binom.logit)
+```
+### Probit link function
+
+```{r binomprobit, echo=TRUE}
+model.binom.probit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge + Bedrooms + Electricity,
+                     family = binomial(link = "probit"))
+initial.probit.AIC = model.binom.probit$aic
+summary(model.binom.probit) 
+```
+We now apply step function to see how we can improve the model in terms of AIC:
+
+```{r binomprobitAIC}
+step(model.binom.probit)
+
+model.binom.probit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge + Electricity,
+                     family = binomial(link = "probit"))
+
+second.probit.AIC <- model.binom.probit$aic
+summary(model.binom.probit)
+
+model.binom.probit = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge,
+                     family = binomial(link = "probit"))
+```
+Modelling using probit link function  resulted in similar final variables as the logistic regression. AIC dropped from `r round(initial.probit.AIC,1)` to `r round(second.probit.AIC, 1)`. Regarding the Electricity variable, the same argument applies as the logistic regression and the final AIC after removing Electricity will be `r round(model.binom.probit$aic,1)` which has a minor difference with the previous value of `r round(second.probit.AIC, 1)`. Furthermore, the likelihood ratio test is `r round((model.binom.probit$null.deviance - model.binom.probit$deviance),1)` which is significantly greater than $\chi^2$(p=0.95,df = `r model.binom.probit$df.null - model.binom.probit$df.residual`) equals `r round(qchisq(df=model.binom.probit$df.null - model.binom.probit$df.residual, p=0.95), 1)` indicating no deviance of lack of fit.
+Therefore the final model using probit link function will be$$Number\_ of\_Family\_new \sim Income + FoodExpenditure + 
+                       Gender + Age + Type + HouseAge$$
+```{r finalprobit}
+summary(model.binom.probit)
+```
+
+### cloglog link function
+
+```{r binomcloglog, echo=TRUE}
+model.binom.cloglog = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type + Area + HouseAge + Bedrooms + Electricity,
+                     family = binomial(link = "cloglog"))
+initial.cloglog.AIC = model.binom.cloglog$aic
+summary(model.binom.cloglog) 
+```
+We now apply step function to see how we can improve the model in terms of AIC:
+
+```{r binomcloglogAIC}
+step(model.binom.cloglog)
+
+model.binom.cloglog = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge + Electricity,
+                     family = binomial(link = "cloglog"))
+
+second.cloglog.AIC <- model.binom.cloglog$aic
+summary(model.binom.cloglog)
+
+model.binom.cloglog = glm(data = data, Number_of_Family_new ~ Income + FoodExpenditure + 
+                       Gender + Age + Type+ HouseAge,
+                     family = binomial(link = "cloglog"))
+```
+Modelling using cloglog link function  resulted in similar final variables as the previous two link functions. AIC dropped from `r round(initial.cloglog.AIC,1)` to `r round(second.cloglog.AIC, 1)` and three variables of Electricy, Area and Bedrooms were removed. Furthermore, the likelihood ratio test is `r round((model.binom.cloglog$null.deviance - model.binom.cloglog$deviance),1)` which is significantly greater than $\chi^2$(p=0.95,df = `r model.binom.cloglog$df.null - model.binom.cloglog$df.residual`) equals `r round(qchisq(df=model.binom.cloglog$df.null - model.binom.cloglog$df.residual, p=0.95), 1)` indicating no deviance of lack of fit.
+Therefore the final model using cloglog link function will be$$Number\_ of\_Family\_new \sim Income + FoodExpenditure + 
+                       Gender + Age + Type + HouseAge$$
+
+## Model Comparison
+
+We now have 4 models. The Table \ref{tabel:models} shows the models AIC, BIC and their associated McFadden’s pseudo-$R^2$ value.
+```{r modelcomparison}
+Models <- c('Poisson ','Binomial(Logit)','Binomial(Probit)', "Binomial(cloglog)") 
+
+model.poisson.params <- glance(model.poisson)
+model.logit.params <- glance(model.binom.logit)
+model.probit.params <- glance(model.binom.probit)
+model.cloglog.params <- glance(model.binom.cloglog)
+McFadden <- data.frame(Pseudo_R2 = c(PseudoR2(model.poisson),
+                                     PseudoR2(model.binom.logit),
+                                     PseudoR2(model.binom.probit),
+                                     PseudoR2(model.binom.cloglog)))
+
+bind_rows(model.poisson.params, model.logit.params, 
+          model.probit.params,model.cloglog.params, .id = "Model") %>% 
+  select(Model, AIC, BIC) %>% mutate_if(is.numeric, round, 1) %>% 
+  mutate(Model = Models) %>% cbind(McFadden) %>% kable(
+    digits = 4,
+    caption = "\\label{tabel:models}Model comparison values for different models.", 
+    align = rep("c", 4)
+  )
+
+```
+
+12345
