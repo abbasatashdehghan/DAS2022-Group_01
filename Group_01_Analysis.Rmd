@@ -271,7 +271,11 @@ Type <- models$Type +
   geom_point(color = "deeppink") +
   theme_classic() + theme(plot.title = element_blank())
 
-grid.arrange(Log.Income, Log.Expenditure, Gender, Type)
+Bedrooms <- models$Bedrooms + 
+  geom_smooth(color = "deeppink", se = F) +
+  theme_classic() + theme(plot.title = element_blank())
+
+grid.arrange(Log.Income, Log.Expenditure, Gender, Type, Bedrooms)
 ```
 
 Figure \ref{fig:predictions} illustrates the predictions of the model. The difference between real values and predictions can be seen in Figure \ref{fig:comparison}
