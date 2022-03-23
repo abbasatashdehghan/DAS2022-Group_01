@@ -26,7 +26,6 @@ library(dplyr)
 ```
 # Introduction {#sec:Intro}
 
-Dataset comes from the FIES (Family Income and Expenditure Survey) recorded in the Philippines. The survey, which is undertaken every three years, is aimed at providing data on family income and expenditure. In this study, we are going to identify the most influential variables on the number of people living in a household using a Generalised Linear Model. Below you can see an overview of the data and variables.
 
 ```{r, message=FALSE, warning=F}
 data <- read.csv("dataset1.csv", stringsAsFactors = T) %>% 
@@ -35,7 +34,7 @@ data <- read.csv("dataset1.csv", stringsAsFactors = T) %>%
          "Bedrooms" = 10) 
 
 data$Type <- as.character(data$Type)
-data$Type[data$Type == "Two or More Nonrelated Persons/Members"] <- "Other"
+
  
 #Region column removed from the data
   
@@ -55,7 +54,6 @@ $bedrooms$ is the number of bedrooms in the house
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
 
 ## Recast variables
-From the above it can been seen that variable "Region" will have no contribution to the upcoming analysis as it has only one state. Therefore, it is removed from the data. 
 
 In addition to that,a new column called "Number_of_Family_new" is added to reduce the level of "Number_of_Family" from 15 to 2 for the binomial model analysis. The median value of `r median(data$Number_of_Family)` is used as the cut off point. Therefore they are divided into groups of families of less than or equal to 4 members and greater than 4 members.
 ```{r, message=FALSE, warning=FALSE, echo=TRUE}
@@ -71,89 +69,7 @@ The following tables and graphs are produced to provide statistical summaries an
 ```{r data_summary}
 # summary(data)
 data[,-c(3,5,11)] %>% skim() %>% 
-  select(skim_variable,numeric.p0, numeric.p25,
-                       numeric.mean, numeric.sd, numeric.p50, numeric.p75, numeric.p100) %>% 
-  kable(caption = "\\label{tabel:summary} Summary Statistics", 
-        col.names = c("Variable", "Min", "Q1","Mean",
-                                       "SD", "Median", "Q3", "Max"),
-        align = rep("c", 6), digits = 1)
-```
 
-Referring to \ref{tabel:summary}, the difference between mean and median of some variables also indicating the presence of large outliers in the data. The following pair plots fuhrer support the presence of outliers.
-
-```{r pairplot1, fig.cap="\\label{fig:pairplot1} The pair plot (first five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
-data[,c(1:5,11)] %>% ggpairs(aes(color = Number_of_Family_new))
-```
-
-```{r pairplot2, fig.cap="\\label{fig:pairplot2} The pair plot (second five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
-data[,c(6:11)] %>% ggpairs(aes(color = Number_of_Family_new))
-```
-
-Figure \ref{fig:outliers} presents the distribution of outcome variables with regards to each of the continuous variables. The boxplots can further help identifying the outliers of each variable.  
-
-```{r outliers, fig.cap="\\label{fig:outliers} The boxplot of the outcome variables vs each of the continuous explanatory variables", message=FALSE, warning=FALSE}
-# Defining a fucntion to draw multiple boxplots for the outcome variables
-graph_function <- function(x){
-  ggplot(data = data, aes(x = Number_of_Family_new, y = get(x))) + 
-    geom_boxplot(aes(color = Number_of_Family_new)) + 
-    theme(legend.position = "none") + labs(y = x) + 
-    scale_y_continuous(limits = c(min(data[[x]])*0.9, max(data[[x]])*1.1)) + 
-    stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
-                 width = .75, linetype = "dashed")
-}  
-#Boxplots of outcome variable vs other continous variables:
-graphs <- lapply(names(data)[c(1,2,4,6,7,8,9)], graph_function)
-grid.arrange(graphs[[1]],graphs[[2]],graphs[[3]],graphs[[4]],
-                  graphs[[5]],graphs[[6]], ncol = 2)
-```
-
-Once the outliers are spotted and removed, the skewness in data is decreased as it can be seen in the Figure \ref{fig:outliersremoved}
-
-```{r outliersremoved, fig.cap="\\label{fig:outliersremoved} The boxplot of the outcome variables vs each of the continuous explanatory variables after removing outliers", message=FALSE, warning=FALSE}
-#Removing outliers 
-data <- data %>% filter(Income < 833000 & Area < 250)
-graphs_updated <- lapply(names(data)[c(1,2,4,6,7,8,9)], graph_function)
-p <- grid.arrange(graphs_updated[[1]],graphs_updated[[2]],graphs_updated[[3]],
-                  graphs_updated[[4]],graphs_updated[[5]],graphs_updated[[6]],
-                  ncol = 2)
-```
-The table \ref{tabel:summary_outlier_removed} shows the summary statistics after removing outliers. The difference between medians and means are now narrower. 
-
-```{r data_summary_outliers_removed}
-data[,-c(3,5,11)] %>% skim() %>% 
-  select(skim_variable,numeric.p0,
-                       numeric.mean, numeric.sd, numeric.p50, numeric.p100) %>% 
-  kable(caption = "\\label{tabel:summary_outlier_removed} Summary Statistics after outliers removed", 
-        col.names = c("Variable", "Min", "Mean",
-                                       "SD", "Median", "Max"),
-        align = rep("c", 6), digits = 1)
-```
-
-The following data and graphs display the relationship between categorical variables and outcome variable
-
-```{r categorical_statistics}
-data %>% select(Number_of_Family_new, Gender) %>% 
-tabyl(Number_of_Family_new, Gender) %>% 
-  adorn_percentages() %>% 
-  adorn_pct_formatting() %>% 
-  adorn_ns() %>% kable(caption = "\\label{tabel:summary_Gender} Summary outcome variabels based on gender", align = rep("c", 3), digits = 1)
-data %>% select(Number_of_Family_new, Type) %>% 
-tabyl(Number_of_Family_new, Type) %>% 
-  adorn_percentages() %>% 
-  adorn_pct_formatting() %>% 
-  adorn_ns() %>% kable(caption = "\\label{tabel:summary_Gender} Summary outcome variabels based on family type", align = rep("c", 3), digits = 1)
-```
-Table \ref{tabel:summary_Gender} shows that the men outnumber women as the head of household by almost 47 to 1. Furthermore, it can bee seen that the majority of families with in both groups are led by men.
-
-```{r categorical_statistics_figs, fig.cap="\\label{fig:categorical_statistics_figs} The proportion of the outcome variables with regards to cetegorial variables"}
-ggplot(data, aes(x= Gender,  y = ..prop.., group=Number_of_Family_new, fill=Number_of_Family_new)) + 
-    geom_bar(position="dodge", stat="count") +
-    labs(y = "Proportion", title = "The proportion of genders in each of the two categories")
-ggplot(data, aes(x= Type,  y = ..prop.., group=Number_of_Family_new, fill=Number_of_Family_new)) + 
-    geom_bar(position="dodge", stat="count") +
-    labs(y = "Proportion", title = "The proportion of family type in each of the two categories") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-```
- 
 
 
 ```{r pairplot1, fig.cap="\\label{fig:pairplot1} The pair plot (first five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
@@ -240,8 +156,7 @@ ggplot(data, aes(x= Type,  y = ..prop.., group=Number_of_Family_new, fill=Number
     geom_bar(position="dodge", stat="count") +
     labs(y = "Proportion", title = "The proportion of family type in each of the two categories")
 ```
-# Formal Data Analysis
-In this section we model the data to identify the most influential factors on the number of family members using different GLMs. Then the goodness of fit comparison is made to select the best model based on AIC and Deviance.
+
 
 ## Poisson  model
 ```{r poisson, echo=TRUE}
@@ -252,6 +167,7 @@ initial.poisson.AIC = model.poisson$aic
 summary(model.poisson)
 ```
 We now try to see if we can improve model AIC and decrease the deviance using step function. In this method we start from the full model and every time drop one variable and calculate the AIC. This procedure is continued until no further reduction in AIC is observed.
+
 ```{r PoissonAIC}
 step(model.poisson)
 
