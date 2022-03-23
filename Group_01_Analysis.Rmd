@@ -135,7 +135,7 @@ plotdata = data %>% count(Number_of_Family) %>%
   mutate(pct = n / sum(n),
          pctlabel = paste0(round(pct*100,1), "%"))
 plotdata %>% ggplot(aes(x = Number_of_Family, y = n)) + 
-  geom_bar(stat = "identity", 
+  geom_col(stat = "identity", 
            fill = "indianred3", 
            color = "black")  +
    geom_text(aes(label = pctlabel), 
@@ -143,7 +143,7 @@ plotdata %>% ggplot(aes(x = Number_of_Family, y = n)) +
   labs(x = "Number_of_Family", 
        y = "Frequency", 
        title  = "Histogram of the number of familiy members") + 
-  theme_classic() 
+  theme_classic()
 
 ```
 The histogram (Figure \ref{fig:hist} ) of the family size resembles a Poisson distribution.
@@ -198,3 +198,49 @@ plot_model(model.poisson, show.values = TRUE,
 
 ```
 
+```{r, warning=FALSE, message=FALSE}
+plot_model(model.poisson, type = "pred", se = NULL)
+```
+
+Figure \ref illustrates the predictions of the the model. The differ3ence betwen real values and predictions can be seen in Figure \ref
+
+```{r predictions, fig.cap="\\label{fig:predictions} Histogram of predictions of the number of family members"}
+
+predictions = data %>% 
+  mutate(pred = round(predict(model.poisson, type = "response"))) %>% count(pred)
+
+predictions <- rbind(predictions, data.frame("pred" = c(1, 14, 15), n = rep(0,3))) %>% 
+  arrange(pred)
+
+
+predictions %>% mutate(pct = n / sum(n),
+       pctlabel = paste0(round(pct*100,1), "%")) %>% 
+  ggplot(aes(x = as.factor(pred), y = n)) + 
+  geom_bar(stat = "identity", 
+           fill = "steelblue", 
+           color = "black")  +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) + 
+  labs(x = "Family size", 
+       y = "Frequency", 
+       title  = "Prediction histogram of the number of familiy members") + 
+  theme_classic() 
+
+
+```
+
+```{r comparison, fig.cap="\\label{fig:comparison} Comparison between real data and predictions"}
+
+right_join(predictions[,c(1,2)], plotdata[,c(1,2)], by = c("pred" = "Number_of_Family")) %>% 
+  gather(number, count, -pred) %>% rename("Family.size" = 1, "Group" = 2) %>% 
+  mutate(Group = replace(Group, Group == "n.y", "Real count"),
+         Group = replace(Group, Group == "n.x", "Prediction")) %>% 
+    ggplot(aes(x = as.factor(Family.size), y = count, fill = Group)) +
+  geom_col(position = position_dodge()) + 
+  labs(x = "Family size")+
+  scale_fill_manual(
+    values = c("Real count" = "indianred3", "Prediction" = "steelblue"))+
+  theme_classic()
+
+
+```
