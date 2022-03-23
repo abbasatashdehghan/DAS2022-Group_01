@@ -26,22 +26,23 @@ library(dplyr)
 ```
 # Introduction {#sec:Intro}
 
-Dataset comes from the FIES (Family Income and Expenditure Survey) recorded in the Philippines. The survey, which is undertaken every three years, is aimed at providing data on family income and expenditure. In this study, we are going to identify the most influential variables on the number of people living in a household using a Generalised Linear Model. Below you can see an overview of the data and variables
+
 ```{r, message=FALSE, warning=F}
 data <- read.csv("dataset1.csv", stringsAsFactors = T) %>% 
   rename("Number_of_Family"=7,"Income" = 1, "FoodExpenditure" = 3,
          "Gender" = 4, "Age" = 5,"Type" = 6, "Area" = 8,"HouseAge" = 9,
-         "Bedrooms" = 10) %>% select(-2)
+         "Bedrooms" = 10) 
 
 data$Type <- as.character(data$Type)
-data$Type[data$Type == "Two or More Nonrelated Persons/Members"] <- 
-  "Other"
+
  
 #Region column removed from the data
   
 glimpse(data)
 ```
 
+$Income$ is the annual household income (in Philippine peso)
+$Region$ is the region of the Philippines which the data came from
 $FoodExpenditure$ is the annual expenditure by the household on food (in Philippine peso)  
 $Gender$ is the head of the households sex  
 $Age$ is the head of the households age (in years)  
@@ -53,11 +54,12 @@ $bedrooms$ is the number of bedrooms in the house
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
 
 ## Recast variables
-we add a new column called "Number_of_Family_new", reducing the level of "Number_of_Family" from 15 to 2 to be used for binomial model. The median value of `r median(data$Number_of_Family)` is used as the cut off point. Therefore they are divided into groups of families of less than or equal to 4 members and greater than 4 members.
+
+In addition to that,a new column called "Number_of_Family_new" is added to reduce the level of "Number_of_Family" from 15 to 2 for the binomial model analysis. The median value of `r median(data$Number_of_Family)` is used as the cut off point. Therefore they are divided into groups of families of less than or equal to 4 members and greater than 4 members.
 ```{r, message=FALSE, warning=FALSE, echo=TRUE}
 data <- data %>% mutate(Number_of_Family_new = cut(Number_of_Family,
                                   breaks = c(-1,4,Inf),
-                                  labels=c("<=4", ">4")))
+                                  labels=c("<=4", ">4"))) %>% select(-2)
 
 ```
 
@@ -67,15 +69,7 @@ The following tables and graphs are produced to provide statistical summaries an
 ```{r data_summary}
 # summary(data)
 data[,-c(3,5,11)] %>% skim() %>% 
-  select(skim_variable,numeric.p0,
-                       numeric.mean, numeric.sd, numeric.p50, numeric.p100) %>% 
-  kable(caption = "\\label{tabel:summary} Summary Statistics", 
-        col.names = c("Variable", "Min", "Mean",
-                                       "SD", "Median", "Max"),
-        align = rep("c", 6), digits = 1)
-```
 
-Referring to \ref{tabel:summary}, the difference between mean and median indicates the presence of outliers in the data. The following pair plots fuhrer support the presence of outliers. 
 
 
 ```{r pairplot1, fig.cap="\\label{fig:pairplot1} The pair plot (first five variables) shows the relationship between each of the two variables", message=FALSE, warning=FALSE}
@@ -162,8 +156,7 @@ ggplot(data, aes(x= Type,  y = ..prop.., group=Number_of_Family_new, fill=Number
     geom_bar(position="dodge", stat="count") +
     labs(y = "Proportion", title = "The proportion of family type in each of the two categories")
 ```
-# Formal Data Analysis
-In this section we model the data to identify the most influential factors on the number of family members using different GLMs. Then the goodness of fit comparison is made to select the best model based on AIC and Deviance.
+
 
 ## Poisson  model
 ```{r poisson, echo=TRUE}
@@ -174,6 +167,7 @@ initial.poisson.AIC = model.poisson$aic
 summary(model.poisson)
 ```
 We now try to see if we can improve model AIC and decrease the deviance using step function. In this method we start from the full model and every time drop one variable and calculate the AIC. This procedure is continued until no further reduction in AIC is observed.
+
 ```{r PoissonAIC}
 step(model.poisson)
 
