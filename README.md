@@ -13,6 +13,8 @@ Group_01_Analysis.Rmd - all code for analyzing datasets and tasks is included.
 
 Group_01_Analysis.pdf - the output of the "Group_01_Analysis.Rmd" file in PDF form.
 
+Group_01_Project.pptx - a briefing file presenting the entire task
+
 "DAS2022-Group_01.Rproj", "models.R", "test.Rmd", "version1 - standardize.R" and "version2 - no standardize.R" - Can be ignored here. Historical archives of all code that was ever used for analysis, saved for further work.  
 
 
