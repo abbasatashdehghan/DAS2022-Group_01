@@ -43,6 +43,8 @@ data <- data %>% filter(Type != "Two or More Nonrelated Persons/Members") %>%
 glimpse(data)
 ```
 
+$Income$ is the annual household income (in Philippine peso)
+$Region$ is the region of the Philippines which the data came from
 $FoodExpenditure$ is the annual expenditure by the household on food (in Philippine peso)  
 $Gender$ is the head of the households sex  
 $Age$ is the head of the households age (in years)  
@@ -54,7 +56,9 @@ $bedrooms$ is the number of bedrooms in the house
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
 
 # Exploratory Data Analysis {#sec:EDA}
-The following tables and graphs are produced to provide statistical summaries and graphs to see the distribution variables and their relationship and identify any possible outliers.
+
+The following tables and graphs are produced to provide statistical summaries and graphs to see the distribution variables and their relationship and identify any possible outliers. 
+The variable "Region" is removed as it has only one level and will notcontribute to the
 
 ```{r data_summary}
 # summary(data)
