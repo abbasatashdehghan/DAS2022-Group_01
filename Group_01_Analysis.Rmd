@@ -32,13 +32,7 @@ Dataset comes from the FIES (Family Income and Expenditure Survey) recorded in t
 data <- read.csv("dataset1.csv", stringsAsFactors = T) %>% 
   rename("Number_of_Family"=7,"Income" = 1, "Expenditure" = 3,
          "Gender" = 4, "Age" = 5,"Type" = 6, "Area" = 8,"HouseAge" = 9,
-         "Bedrooms" = 10) %>% select(-2)
-
-# There are only 8 observations 
-data <- data %>% filter(Type != "Two or More Nonrelated Persons/Members") %>% 
-  mutate(Type = factor(Type, levels = c("Single Family", "Extended Family")))
- 
-#Region column removed from the data
+         "Bedrooms" = 10)
   
 glimpse(data)
 ```
@@ -55,12 +49,33 @@ $HouseAge$ is the age of the building (in years)
 $bedrooms$ is the number of bedrooms in the house  
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
 
+```{r InitialDataCleaning, echo=TRUE}
+
+#Region column removed from the data
+data <- data %>% select(-2)
+
+# The third category of the type variable (Two or More Nonrelated Persons/Members) which only 8 observations removed since it wasn't of significant importance
+
+data <- data %>% filter(Type != "Two or More Nonrelated Persons/Members") %>%
+  mutate(Type = factor(Type, levels = c("Single Family", "Extended Family")))
+
+#You can run the analysis with 3 categories of the type included by commenting the lines above an instead  instead uncommening the lines below
+
+# data <- data %>% mutate(Type = as.character(Type),
+#   Type=replace(Type, Type=="Two or More Nonrelated Persons/Members", "Others")) %>%
+#   mutate(Type = factor(Type, levels = c("Single Family", "Extended Family","Others")))
+
+
+glimpse(data)
+
+```
+
 # Exploratory Data Analysis {#sec:EDA}
 
 The following tables and graphs are produced to provide statistical summaries and graphs to see the distribution variables and their relationship and identify any possible outliers. 
 
 The variable "Region" is removed as it has only one level and will not contribute to the  upcoming analysis as it has only one state.
-Furthermore, the **Type** variable was initially composed of three levels of "Extended Family", "Single Family" and  "Two or More Nonrelated Persons/Members" categories. There were only 8 observations(less than 0.05 percent of total observations) in the last category. This category removed since it wasn't of significant importance, it made interpretation more straightforward and it's removal did not affect the data.
+Furthermore, the **Type** variable was initially composed of three levels of "Extended Family", "Single Family" and  "Two or More Nonrelated Persons/Members" categories. There were only 8 observations(less than 0.05 percent of total observations) in the last category. This category removed since it wasn't of significant importance.
 ```{r data_summary}
 # summary(data)
 data[,-c(3,5,11)] %>% skim() %>% 
