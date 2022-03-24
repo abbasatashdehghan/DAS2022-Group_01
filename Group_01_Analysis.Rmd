@@ -137,7 +137,7 @@ data[,-c(3,5,11)] %>% skim() %>%
 
 
 
-The Figure \ref{fig:hist} shows the distribution of household sizes:
+The Figure \ref{fig:hist} and \ref{fig:hist} shows the distribution of household sizes and simulated Poisson distribution with the mean value of `r round(mean(data$Number_of_Family),1)` respectively.
 
 ```{r hist, fig.cap="\\label{fig:hist} Distribtion of the size of families", message=FALSE, warning=FALSE}
 plotdata = data %>% count(Number_of_Family) %>% 
@@ -152,9 +152,24 @@ plotdata %>% ggplot(aes(x = as.factor(Number_of_Family), y = n)) +
   labs(x = "Number_of_Family", 
        y = "Frequency", 
        title  = "Histogram of the number of familiy members") + 
-  theme_classic()
+  theme_classic() 
+
 
 ```
+```{r Simulate, fig.cap="\\label{fig:hist} Simulate Poisson with the same lambda as our data", message=FALSE, warning=FALSE}
+#Simulate Poisson with the same lambda as our data
+set.seed(1)
+data.frame(data = rpois(500, lambda=mean(data$Number_of_Family))) %>% 
+  count(data) %>% 
+  ggplot(aes(x = as.factor(data), y = n)) + 
+  geom_col(fill ="#2166AC") + 
+  labs(x = "x", 
+       title =paste("Simulated Poisson distribution with the mean of", 
+                    round(mean(data$Number_of_Family),1))) + 
+  theme_classic()
+```
+
+
 The histogram (Figure \ref{fig:hist} ) of the family size resembles a Poisson distribution.
 
 # Formal Data Analysis
@@ -167,18 +182,6 @@ model.poisson = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure
                      family = poisson(link = "log"))
 initial.poisson.AIC = model.poisson$aic
 summary(model.poisson)
-```
-The full model data in terms of AIC, BIC and can be seen Table \ref{tabel:fullmodel}
-
-```{r fullmodel}
-Models = c("Poisson")
-model.poisson.params <- round(glance(model.poisson),1)
-McFadden <- data.frame(pseudo_R2 = c(PseudoR2(model.poisson)))
-
-bind_rows(model.poisson.params, .id = "Model") %>% 
-  select(Model, AIC, BIC) %>% 
-  mutate(Model = Models) %>% cbind(McFadden) %>% remove_rownames(.) %>% 
-  kable(caption = "\\label{tabel:fullmodel} Full model data",align = rep("c", 4), digits = 3)
 ```
 
 We now try to see if we can improve model AIC and decrease the deviance using step function. In this method we start from the full model and every time drop one variable and calculate the AIC. This procedure is continued until no further reduction in AIC is observed.
@@ -193,38 +196,87 @@ second.poisson.AIC = model.poisson$aic
 
 summary(model.poisson)
 
+```
+
+By removing Electricity and Area and Age, the AIC is reduced from `r round((initial.poisson.AIC),1)` to `r round((second.poisson.AIC),1)`. We now check for the goodness of fit by comparing it against the null model. The 95 percent $\chi^2$(p = 0.95, df = `r model.poisson$df.null - model.poisson$df.residual`) equals `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Taking the difference in deviances (likelihood ratio test) results in the value of `r round((model.poisson$null.deviance - model.poisson$deviance),1)` which is significant when compared to `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Therefore, there is no deviance of lack of fit with our model after removing the variables. The Log.HouseAge is not also significantly different from zero and by removing it, the AIC remains almost constant(`r round(model.poisson$aic,1)`), however, the BIC is further reduced by 5 after removing Log.HouseAge. The Pseudo_R2 remains almost the same for all models. Table \ref{tabel:modelcomparison} presents AIC, BIC and Pseudo-R2 for the models assessed in our analysis. They are shown in order of dropping variables from the full model. For example "F—Age" represents the model with Electricity, Log.Area and Area removed.
+Given above, The formula below is proposed to model expected count:
+$$log(Number\_ of\_Family) =\beta_0 + \beta_1 \cdot log(Income) + \beta_2 \cdot log(FoodExpenditure) + \beta_3 \cdot Gender + \beta_4 \cdot Bedrooms+ 
+\beta_5 \cdot Type$$
+
+
+```{r modelcomparison}
+
+Models = c("Fullmodel", "F-Electricity", "F--Log.Area", "F---Age", 
+           "F----Log.House")
+
+Fullmodel = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
+                      Gender + Age + Type + Log.Area + Log.HouseAge + Bedrooms + Electricity,
+                    family = poisson(link = "log"))
+Fullmodel.params <- round(glance(Fullmodel),1)
+
+F_Electricity = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
+                  Gender + Age + Type + Log.Area + Log.HouseAge + Bedrooms,
+                family = poisson(link = "log"))
+F_Electricity.params <- round(glance(F_Electricity),1)
+
+
+F_Log.Area = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
+                      Gender + Age + Type + Log.HouseAge + Bedrooms,
+                    family = poisson(link = "log"))
+F_Log.Area.params <- round(glance(F_Log.Area),1)
+
+
+F_Age = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
+                   Gender  + Type + Log.HouseAge + Bedrooms,
+                 family = poisson(link = "log"))
+F_Age.params <- round(glance(F_Age),1)
+
+
+F_Log.House = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
+              Gender  + Type + Bedrooms,
+            family = poisson(link = "log"))
+F_Log.House.params <- round(glance(F_Log.House),1)
+
+
+
+McFadden <- data.frame(pseudo_R2 = c(PseudoR2(Fullmodel),
+                                     PseudoR2(F_Electricity),
+                                     PseudoR2(F_Log.Area),
+                                     PseudoR2(F_Age),
+                                     PseudoR2(F_Log.House)))
+
+bind_rows(Fullmodel.params,
+          F_Electricity.params,F_Log.Area.params,F_Age.params,F_Log.House.params,
+          .id = "Model") %>% 
+  select(Model, AIC, BIC) %>% 
+  mutate(Model = Models) %>% cbind(McFadden) %>%
+  kable(
+    digits = 3,
+    caption = "\\label{tabel:modelcomparison}Model comparison values for different models.")
+
+
+```
+      
+## Parameter estimates
+Table \ref{tabel:parameterestimates} displays the parameter estimates. The main explanatory variables are significantly different from zero
+```{r Finalmodel}
 #Final model after removing Log.HouseAge
 model.poisson = glm(data = data, Number_of_Family ~ Log.Income + Log.Expenditure + 
                        Gender + Type + Bedrooms ,
                      family = poisson(link = "log"))
 ```
 
-By removing Electricity and Area and Age, the AIC is reduced from `r round((initial.poisson.AIC),1)` to `r round((second.poisson.AIC),1)`. We now check for the goodness of fit by comparing it against the null model. The 95 percent $\chi^2$(`r model.poisson$df.null - model.poisson$df.residual`) equals `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Taking the difference in deviances (likelihood ratio test) results in the value of `r round((model.poisson$null.deviance - model.poisson$deviance),1)` which is significant when compared to `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Therefore, there is no deviance of lack of fit with our model after removing the variables. The Log.HouseAge is not also significantly different from zero and by removing it, the AIC remains almost constant(`r round(model.poisson$aic,1)`).
-Given above, The formula below is proposed to model expected count:
-$$log(Number\_ of\_Family) =\beta_0 + \beta_1 \cdot log(Income) + \beta_2 \cdot log(FoodExpenditure) + \beta_3 \cdot Gender + \beta_4 \cdot Bedrooms+ 
-\beta_5 \cdot Type$$
+```{r parameterestimates, warning=FALSE, message=FALSE}
+conf.int <- confint(model.poisson) %>% 
+  data.frame() %>% rename("Lower CI"=1, "Upper CI"=2)
+sum.coef <- summary(model.poisson)$coefficients
 
-Table \ref{tabel:finalmodel} presents AIC, BIC and Pseudo-R2 for the final model:
-
-```{r finalmodel}
-Models = c("Poisson")
-model.poisson.params <- round(glance(model.poisson),1)
-McFadden <- data.frame(pseudo_R2 = c(PseudoR2(model.poisson)))
-
-bind_rows(model.poisson.params, .id = "Model") %>% 
-  select(Model, AIC, BIC) %>% 
-  mutate(Model = Models) %>% cbind(McFadden) %>% remove_rownames(.) %>% 
-  kable(caption = "\\label{tabel:finalmodel} Final model data",align = rep("c", 4), digits = 3)
-```
-      
-## Parameter estimates
-Table \ref{tabel:parameterestimates} displays the parameter estimates. The main explanatory variables are significantly different from zero
-```{r parameterestimates}
-summary(model.poisson)$coefficients %>% 
-   kable(caption = "\\label{tabel:parameterestimates} parameter estimates of the Poisson regression model", 
-        col.names = c("Estimate", "Std. Error", "Test Statistic",
-                                       "P.value"),
-        align = rep("c", 4), digits = 3)
+cbind(sum.coef, conf.int) %>% select(-3) %>% relocate(3, .after = 5) %>% 
+  add_rownames(var = "parameter") %>% 
+  kable(caption = "\\label{tabel:parameterestimates} parameter estimates of the Poisson regression model", 
+        col.names = c("Parameter","Estimate", "Std. Error", "Lower CI","Upper CI",
+                      "P.value"),
+         digits = 3)
 ```
 
 The rate ratio are obtained by exponentiating the coefficients(Table \ref{tabel:rateratio}). Figure \ref{fig:rateratiofig} exhibits the rate ration for the different explantory variables
@@ -238,7 +290,7 @@ cbind(exp(coef(model.poisson)), exp(confint(model.poisson))) %>% data.frame() %>
 plot_model(model.poisson, show.values = TRUE,
            title = "Rate ratio", show.p = FALSE, axis.lim = c(0.8,2.1)) +
   theme_light() + geom_hline(yintercept = 1, color = "deeppink") + 
-  ylim(c(0.8, 2.1)) + 
+  ylim(c(0.8, 2)) + 
   scale_y_continuous(breaks = seq(0.8,2.1,0.1))
 
 ```
@@ -275,7 +327,7 @@ Bedrooms <- models$Bedrooms +
   geom_smooth(color = "deeppink", se = F) +
   theme_classic() + theme(plot.title = element_blank())
 
-grid.arrange(Log.Income, Log.Expenditure, Gender, Type, Bedrooms)
+grid.arrange(Log.Income, Log.Expenditure, Type, Gender, Bedrooms)
 ```
 
 Figure \ref{fig:predictions} illustrates the predictions of the model. The difference between real values and predictions can be seen in Figure \ref{fig:comparison}
