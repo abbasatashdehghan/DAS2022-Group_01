@@ -32,13 +32,7 @@ Dataset comes from the FIES (Family Income and Expenditure Survey) recorded in t
 data <- read.csv("dataset1.csv", stringsAsFactors = T) %>% 
   rename("Number_of_Family"=7,"Income" = 1, "Expenditure" = 3,
          "Gender" = 4, "Age" = 5,"Type" = 6, "Area" = 8,"HouseAge" = 9,
-         "Bedrooms" = 10) %>% select(-2)
-
-
-data <- data %>% filter(Type != "Two or More Nonrelated Persons/Members") %>% 
-  mutate(Type = factor(Type, levels = c("Single Family", "Extended Family")))
- 
-#Region column removed from the data
+         "Bedrooms" = 10)
   
 glimpse(data)
 ```
@@ -55,11 +49,33 @@ $HouseAge$ is the age of the building (in years)
 $bedrooms$ is the number of bedrooms in the house  
 $Electricity$ indicates that if the house have electricity? (1=Yes, 0=No)  
 
+```{r InitialDataCleaning, echo=TRUE}
+
+#Region column removed from the data
+data <- data %>% select(-2)
+
+# The third category of the type variable (Two or More Nonrelated Persons/Members) which only 8 observations removed since it wasn't of significant importance
+
+data <- data %>% filter(Type != "Two or More Nonrelated Persons/Members") %>%
+  mutate(Type = factor(Type, levels = c("Single Family", "Extended Family")))
+
+#You can run the analysis with 3 categories of the type included by commenting the lines above an instead  instead uncommening the lines below
+
+# data <- data %>% mutate(Type = as.character(Type),
+#   Type=replace(Type, Type=="Two or More Nonrelated Persons/Members", "Others")) %>%
+#   mutate(Type = factor(Type, levels = c("Single Family", "Extended Family","Others")))
+
+
+glimpse(data)
+
+```
+
 # Exploratory Data Analysis {#sec:EDA}
 
 The following tables and graphs are produced to provide statistical summaries and graphs to see the distribution variables and their relationship and identify any possible outliers. 
 
 The variable "Region" is removed as it has only one level and will not contribute to the  upcoming analysis as it has only one state.
+Furthermore, the **Type** variable was initially composed of three levels of "Extended Family", "Single Family" and  "Two or More Nonrelated Persons/Members" categories. There were only 8 observations(less than 0.05 percent of total observations) in the last category. This category removed since it wasn't of significant importance.
 ```{r data_summary}
 # summary(data)
 data[,-c(3,5,11)] %>% skim() %>% 
@@ -110,7 +126,7 @@ Once the outliers are spotted and removed, the skewness in data is decreased. Th
 ```{r outliersremoved, fig.cap="\\label{fig:outliersremoved} The boxplot of the outcome variables vs each of the continuous explanatory variables after removing outliers and applying log transformation", message=FALSE, warning=FALSE}
 
 #Removing outliers 
-data <- data %>% filter(Income < 830000 & Area < 500 & HouseAge > 0)
+data <- data %>% filter(Income < 2500000 & Area < 750 & HouseAge > 0)
 
 data <- data %>% mutate(across(c(1,2,7,8), log)) %>% rename("Log.Income" = "Income",
                                                  "Log.Expenditure" = "Expenditure",
@@ -202,7 +218,7 @@ summary(model.poisson)
 
 ```
 
-By removing Electricity and Area and Age, the AIC is reduced from `r round((initial.poisson.AIC),1)` to `r round((second.poisson.AIC),1)`. We now check for the goodness of fit by comparing it against the null model. The 95 percent $\chi^2$(p = 0.95, df = `r model.poisson$df.null - model.poisson$df.residual`) equals `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Taking the difference in deviances (likelihood ratio test) results in the value of `r round((model.poisson$null.deviance - model.poisson$deviance),1)` which is significant when compared to `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Therefore, there is no deviance of lack of fit with our model after removing the variables. The Log.HouseAge is not also significantly different from zero and by removing it, the AIC remains almost constant(`r round(model.poisson$aic,1)`), however, the BIC is further reduced by 5 after removing Log.HouseAge. The Pseudo_R2 remains almost the same for all models. Table \ref{tabel:modelcomparison} presents AIC, BIC and Pseudo-R2 for the models assessed in our analysis. They are shown in order of dropping variables from the full model. For example "F—Age" represents the model with Electricity, Log.Area and Area removed.
+By removing Electricity and Area and Age, the AIC is reduced from `r round((initial.poisson.AIC),1)` to `r round((second.poisson.AIC),1)`. We now check for the goodness of fit by comparing it against the null model. The 95 percent $\chi^2$(p = 0.95, df = `r model.poisson$df.null - model.poisson$df.residual`) equals `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Taking the difference in deviances (likelihood ratio test) results in the value of `r round((model.poisson$null.deviance - model.poisson$deviance),1)` which is significant when compared to `r round(qchisq(df=model.poisson$df.null - model.poisson$df.residual, p=0.95), 1)`. Therefore, there is no deviance of lack of fit with our model after removing the variables. The Log.HouseAge is not also significantly different from zero and by removing it, the AIC remains almost constant, however, the BIC is further reduced by 5 after removing Log.HouseAge. The Pseudo_R2 remains almost the same for all models. Table \ref{tabel:modelcomparison} presents AIC, BIC and Pseudo-R2 for the models assessed in our analysis. They are shown in order of dropping variables from the full model. For example "F—Age" represents the model with Electricity, Log.Area and Area removed.
 Given above, The formula below is proposed to model expected count:
 $$log(Number\_ of\_Family) =\beta_0 + \beta_1 \cdot log(Income) + \beta_2 \cdot log(FoodExpenditure) + \beta_3 \cdot Gender + \beta_4 \cdot Bedrooms+ 
 \beta_5 \cdot Type$$
@@ -376,3 +392,6 @@ right_join(predictions[,c(1,2)], plotdata[,c(1,2)], by = c("pred" = "Number_of_F
 
 
 ```
+
+# Future Work
+We can model the count data using other Possession variations such as Quasi Possession, when there is an over-dispersion (variance is greater than the mean)
