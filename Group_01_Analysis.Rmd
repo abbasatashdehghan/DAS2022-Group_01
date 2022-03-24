@@ -392,5 +392,6 @@ right_join(predictions[,c(1,2)], plotdata[,c(1,2)], by = c("pred" = "Number_of_F
 
 
 ```
+
 # Future Work
 We can model the count data using other Possession variations such as Quasi Possession, when there is an over-dispersion (variance is greater than the mean). 
